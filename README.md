@@ -22,23 +22,6 @@ Built with Tauri (Rust + web frontend); FFmpeg does all video work.
 ## Screenshots
 <img width="1369" height="795" alt="Screenshot 2026-10-09 at 1 10 27 PM" src="https://github.com/user-attachments/assets/f4a32e41-eeef-4e5b-8b62-fbfbc2fa8758" />
 
-### Capturing them (macOS)
-
-The files above don't exist yet — capture them once and the README goes live.
-For each shot: set up the state described, press Cmd+Shift+4, then Space,
-click the app window, and move the capture into `docs/shots/` with the exact
-name below.
-
-1. `main-window.png` — Home tab, 4–6 clips on the storyboard, music on the
-   lane, preview parked mid-clip. Full window.
-2. `animations.png` — Animations tab open, transitions gallery visible, one
-   clip showing the gray transition triangle at its start.
-3. `effects.png` — Visual Effects tab open, an effect (e.g. Sepia) applied so
-   the monitor shows the graded frame.
-4. `audio.png` — storyboard with the green music bar plus one narration take;
-   select the music clip so the Music Tools tab is visible.
-5. `export-dialog.png` — Save movie menu open, preset list fully visible.
-
 ## Features
 
 - **Home** — add videos/photos, rotate, titles/captions/credits, music,
