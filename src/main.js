@@ -3638,6 +3638,16 @@ function wireM6Controls() {
   els.btnSaveMovie.addEventListener("click", (e) => {
     e.stopPropagation();
     els.saveMovieMenu.hidden = !els.saveMovieMenu.hidden;
+    if (!els.saveMovieMenu.hidden) {
+      // The Share group sits at the ribbon's right edge: right-align the
+      // menu when it would run past the viewport instead of clipping options.
+      els.saveMovieMenu.style.left = "";
+      els.saveMovieMenu.style.right = "";
+      if (els.saveMovieMenu.getBoundingClientRect().right > window.innerWidth - 8) {
+        els.saveMovieMenu.style.left = "auto";
+        els.saveMovieMenu.style.right = "0";
+      }
+    }
   });
   document.addEventListener("click", (e) => {
     if (!els.saveMovieMenu.hidden && !e.target.closest(".dropdown")) els.saveMovieMenu.hidden = true;
