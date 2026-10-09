@@ -149,4 +149,5 @@ not affiliated with Microsoft.
 
 ## License
 
-No license chosen yet.
+MIT — see [LICENSE](LICENSE). The bundled FFmpeg sidecars are separate
+binaries and keep their own licenses.
