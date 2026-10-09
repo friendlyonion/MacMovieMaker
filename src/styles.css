@@ -847,9 +847,6 @@ label.rbtn-sm.disabled { opacity: 0.45; cursor: not-allowed; }
   font-size: 10px; font-weight: 700; color: var(--text-2);
   text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 10px 2px;
 }
-.share-col { gap: 1px; justify-content: center; }
-.share-col .rbtn-sm { font-size: 11px; padding: 2px 6px; }
-
 /* ---------- export + custom dialogs ---------- */
 .dialog.export { width: 440px; }
 .progress { height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden; }

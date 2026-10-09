@@ -65,7 +65,6 @@ import {
 import { THEMES, themeById } from "./automovie.js";
 import {
   SAVE_PRESETS,
-  SHARE_SERVICES,
   buildExportPlan,
   resolvePreset,
   estimateMBPerMin,
@@ -229,7 +228,7 @@ for (const id of ["strip", "dropzone", "itemCount", "statusHint", "stage",
   "musicIn", "musicOut", "btnNarrRecord", "btnNarrStop", "btnNarrCancel", "narrLevel",
   "narrStatus", "btnFitMusic", "browserAudioInput", "btnSave",
   "fileNew", "fileOpen", "fileSave", "fileSaveAs", "filePresetList", "fileCustom",
-  "fileShareList", "fileRecentList", "btnSaveMovie", "saveMovieMenu", "shareCol",
+  "fileRecentList", "btnSaveMovie", "saveMovieMenu",
   "exportOverlay", "expTitle", "expPhase", "expFill", "expStats", "expWarnings",
   "expCancel", "expClose", "customOverlay", "custName", "custW", "custH",
   "custVbr", "custFps", "custEst", "custCancel", "custSave"]) {
@@ -2948,7 +2947,7 @@ function wireM5Controls() {
   els.btnSnapshot.addEventListener("click", takeSnapshot);
 }
 
-/* ================================================== M6: export, project, share */
+/* ================================================== M6: export, project */
 
 /* ------------------------------------------------- dirty tracking */
 function markDirty() {
@@ -3003,7 +3002,7 @@ function renderRecentList() {
   injectIcons(box);
 }
 
-/* ------------------------------------------------- save-movie + share menus */
+/* ------------------------------------------------- save-movie menus */
 const allPresets = () => [...SAVE_PRESETS, ...loadCustomPresets()];
 
 function findPreset(id) {
@@ -3039,22 +3038,6 @@ function refreshSaveMenus() {
     for (const p of inGroup) els.saveMovieMenu.appendChild(presetButton(p, ""));
     for (const p of inGroup) els.filePresetList.appendChild(presetButton(p, "file-item"));
   }
-  const mkShare = (svc, cls) => {
-    const b = document.createElement("button");
-    b.className = cls;
-    b.title = `Publish with ${svc.name}: saves the movie, then opens ${svc.name} upload`;
-    b.innerHTML = `<span class="ic" data-icon="upload"></span><span>${escapeHtml(svc.name)}</span>`;
-    b.addEventListener("click", () => shareFlow(svc.id));
-    return b;
-  };
-  els.shareCol.innerHTML = "";
-  els.fileShareList.innerHTML = "";
-  for (const svc of SHARE_SERVICES) {
-    els.shareCol.appendChild(mkShare(svc, "rbtn-sm"));
-    els.fileShareList.appendChild(mkShare(svc, "file-item"));
-  }
-  injectIcons(els.shareCol);
-  injectIcons(els.fileShareList);
 }
 
 /* ------------------------------------------------- export dialog */
@@ -3386,7 +3369,6 @@ async function exportMovieFlow(presetId, opts = {}) {
     if (done.ok) {
       finishExport("ok", `Saved to ${out}`);
       hint(`Movie saved (${out.split("/").pop()}).`);
-      if (opts.share) await doShareOpen(opts.share, out);
     } else if (wasCancel) {
       finishExport("cancel");
     } else {
@@ -3397,26 +3379,6 @@ async function exportMovieFlow(presetId, opts = {}) {
     finishExport("error", err?.message || String(err));
   } finally {
     await cleanup();
-  }
-}
-
-/* ------------------------------------------------- share v1 */
-async function shareFlow(serviceId) {
-  const svc = SHARE_SERVICES.find((s) => s.id === serviceId);
-  if (!svc) return;
-  if (!isTauri) {
-    window.open(svc.url, "_blank");
-    return;
-  }
-  await exportMovieFlow("recommended", { share: svc });
-}
-
-async function doShareOpen(svc, outPath) {
-  hint(`Movie ready (${outPath.split("/").pop()}) — opening ${svc.name} upload…`);
-  try {
-    await invoke("open_external", { url: svc.url });
-  } catch {
-    window.open(svc.url, "_blank");
   }
 }
 

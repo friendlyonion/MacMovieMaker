@@ -27,7 +27,7 @@ Built with Tauri (Rust + web frontend); FFmpeg does all video work.
 ## Features
 
 - **Home** — add videos/photos, rotate, titles/captions/credits, music,
-  narration, AutoMovie themes, snapshot, Save movie, share.
+  narration, AutoMovie themes, snapshot, Save movie.
 - **Import & storyboard** — drag files from Finder; thumbnails, drag-to-reorder
   with insertion indicator, click-to-preview, scrub bar, time readout.
 - **Clip editing** — non-destructive trim (I/O keys, trim dialog), split (M),
@@ -49,7 +49,7 @@ Built with Tauri (Rust + web frontend); FFmpeg does all video work.
 - **Project & View** — Emphasize mix options, Fit to music, project settings;
   storyboard zoom.
 - **File** — New/Open/Save/Save As, recents with autosave recovery,
-  save-movie presets, custom settings, share.
+  save-movie presets, custom settings.
 
 ## Keyboard shortcuts
 
@@ -108,8 +108,7 @@ Presets: Recommended, For high-definition display, For computer, For email,
 plus device presets. "Create custom setting" stores reusable resolution /
 bitrate / framerate combos. Every export is one FFmpeg render applying trims,
 transitions, pan/zoom, effects, text, and the full audio mix — matching the
-preview monitor, with progress and cancel. Share buttons export with the
-recommended preset and open the service's upload page.
+preview monitor, with progress and cancel.
 
 ## Tech
 
