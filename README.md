@@ -1,3 +1,5 @@
+<img width="1254" height="1254" alt="MacMovieMaker logo" src="https://github.com/user-attachments/assets/729f21f2-268c-4487-aba7-054f0ce2837a" />
+
 # MacMovieMaker
 
 A macOS desktop video editor in the spirit of Windows Movie Maker 2012:
