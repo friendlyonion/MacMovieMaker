@@ -20,21 +20,7 @@ Built with Tauri (Rust + web frontend); FFmpeg does all video work.
 - [License](#license)
 
 ## Screenshots
-
-![Main window](docs/shots/main-window.png)
-*Main window: Home ribbon, preview monitor, storyboard strip, audio lane.*
-
-![Animations tab](docs/shots/animations.png)
-*Transitions gallery with a transition stamped on a clip.*
-
-![Visual Effects tab](docs/shots/effects.png)
-*Effects gallery with an effect applied in the monitor.*
-
-![Audio lane](docs/shots/audio.png)
-*Music and narration takes under the storyboard.*
-
-![Export presets](docs/shots/export-dialog.png)
-*Save movie preset menu.*
+<img width="1369" height="795" alt="Screenshot 2026-10-09 at 1 10 27 PM" src="https://github.com/user-attachments/assets/f4a32e41-eeef-4e5b-8b62-fbfbc2fa8758" />
 
 ### Capturing them (macOS)
 
