@@ -35,6 +35,8 @@ import {
   zoomForPxPerSec,
   isNarrowChip,
   packTimelineRows,
+  extendRowsToTotal,
+  mediaSrcStale,
 } from "./clipops.js";
 import {
   TRANSITIONS,
@@ -64,6 +66,7 @@ import {
   fadeEnvelope,
   emphasisFactor,
   scaleSpans,
+  audioCutEnd,
   mimeForExt,
   narrationFileName,
   AUDIO_EXTS,
@@ -717,12 +720,10 @@ function thumbImg(clip) {
 }
 
 function loadDeck(deck, clip) {
-  if (deck.clipId === clip.id) return deck;
+  if (deck.clipId === clip.id && !mediaSrcStale(deck.el.getAttribute("src"), clip.url)) return deck;
   deck.clipId = clip.id;
-  if (deck.el.dataset.clip !== String(clip.id)) {
-    deck.el.dataset.clip = String(clip.id);
-    deck.el.src = clip.url;
-  }
+  deck.el.dataset.clip = String(clip.id);
+  if (clip.url) deck.el.src = clip.url;
   return deck;
 }
 
@@ -2198,6 +2199,8 @@ function ensureAudioEl(clip) {
     }
     node = { el, gain };
     audioNodes.set(clip.id, node);
+  } else if (mediaSrcStale(node.el.getAttribute("src"), clip.url)) {
+    node.el.src = clip.url;
   }
   return node;
 }
@@ -2216,19 +2219,20 @@ function syncAudioElements() {
 }
 
 const audioEnd = (clip) => clip.offset + Math.max(0, clip.out - clip.in);
+const audioPlayEnd = (clip) => audioCutEnd(clip.offset, clip.out - clip.in, layout.total);
 
 function projectTotal() {
   let total = layout.total;
-  for (const c of audioClips) total = Math.max(total, audioEnd(c));
+  for (const c of audioClips) total = Math.max(total, audioPlayEnd(c));
   return total;
 }
 
 function driveAudio() {
   for (const clip of audioClips) {
     const node = ensureAudioEl(clip);
-    const kept = Math.max(0, clip.out - clip.in);
     const start = clip.offset;
-    const end = clip.offset + kept;
+    const end = audioPlayEnd(clip);
+    const kept = Math.max(0, end - start);
     const live = playing && T >= start && T < end && kept > 0 && clip.duration > 0;
     if (live) {
       const local = clip.in + (T - start);
@@ -2414,8 +2418,9 @@ function renderAudioLane() {
     rowEl.style.width = `${Math.max(1, Math.round((row.t1 - row.t0) * lanePxPerSec))}px`;
     for (const clip of audioClips) {
       const kept = Math.max(0, clip.out - clip.in);
+      const pend = audioPlayEnd(clip);
       const s0 = Math.max(clip.offset, row.t0);
-      const s1 = Math.min(clip.offset + kept, row.t1);
+      const s1 = Math.min(pend, row.t1);
       if (s1 - s0 <= 0.001) continue;
       const b = document.createElement("button");
       b.className =
@@ -2440,7 +2445,7 @@ function renderAudioLane() {
       // Trim handles live on the segments holding each end of the clip.
       const sides = [];
       if (s0 <= clip.offset + 0.001) sides.push("in");
-      if (s1 >= clip.offset + kept - 0.001) sides.push("out");
+      if (s1 >= pend - 0.001) sides.push("out");
       for (const side of sides) {
         const h = document.createElement("div");
         h.className = `trim-handle ${side === "in" ? "left" : "right"}`;
@@ -2466,8 +2471,9 @@ function layoutAudioSeg(bar, clip) {
   const rt0 = Number(bar.dataset.t0), rt1 = Number(bar.dataset.t1);
   const span = Math.max(0.001, rt1 - rt0);
   const kept = Math.max(0, clip.out - clip.in);
+  const pend = audioPlayEnd(clip);
   const s0 = Math.max(clip.offset, rt0);
-  const s1 = Math.min(clip.offset + kept, rt1);
+  const s1 = Math.min(pend, rt1);
   bar.style.display = s1 - s0 > 0.0005 ? "" : "none";
   bar.style.left = `${((s0 - rt0) / span) * 100}%`;
   bar.style.width = `${Math.max(0.4, ((s1 - s0) / span) * 100)}%`;
@@ -2488,7 +2494,7 @@ function paintAudioBar(id) {
     const peaks = clip.peaks;
     // Peaks span the kept range (established mapping); paint this seg's slice.
     const rt0 = Number(bar.dataset.t0), rt1 = Number(bar.dataset.t1);
-    const s0 = Math.max(clip.offset, rt0), s1 = Math.min(clip.offset + kept, rt1);
+    const s0 = Math.max(clip.offset, rt0), s1 = Math.min(audioPlayEnd(clip), rt1);
     const lo = (s0 - clip.offset) / kept, hi = (s1 - clip.offset) / kept;
     const n = 90;
     const bw = w / n;
@@ -3790,11 +3796,11 @@ function applyZoom() {
  *  to the project total for trailing audio. */
 function layoutTimelineRows() {
   const total = Math.max(projectTotal(), 0.001);
+  const avail = Math.max(120, els.boardPane.clientWidth - 28);
   if (!clips.length) {
-    tlRows = audioClips.length ? [{ ids: [], t0: 0, t1: total }] : [];
+    tlRows = audioClips.length ? extendRowsToTotal([], total, avail / lanePxPerSec) : [];
     return;
   }
-  const avail = Math.max(120, els.boardPane.clientWidth - 28);
   const spans = clips.map((c, j) => {
     const seg = segOfClip(c.id);
     return {
@@ -3805,11 +3811,7 @@ function layoutTimelineRows() {
       splitOk: !(seg?.x && j > 0),
     };
   });
-  tlRows = packTimelineRows(spans, avail);
-  if (tlRows.length) {
-    const last = tlRows[tlRows.length - 1];
-    last.t1 = Math.max(last.t1, total);
-  }
+  tlRows = extendRowsToTotal(packTimelineRows(spans, avail), total, avail / lanePxPerSec);
 }
 
 /* ----------------------------------------------------------------- events */

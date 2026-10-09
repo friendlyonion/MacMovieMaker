@@ -97,6 +97,31 @@ export function packTimelineRows(spans, maxW) {
 }
 
 /**
+ * Tiles trailing audio past the last video row into audio-only rows so
+ * long music wraps instead of running off-screen. maxSpan caps each row's
+ * seconds (viewport seconds at scale). Returns fresh row objects.
+ */
+export function extendRowsToTotal(rows, total, maxSpan) {
+  const out = rows.map((r) => ({ ids: [...r.ids], t0: r.t0, t1: r.t1 }));
+  const cap = Math.max(0.001, maxSpan);
+  let t = Math.min(out.length ? out[out.length - 1].t1 : 0, total);
+  while (t < total - 1e-9) {
+    const n = Math.min(t + cap, total);
+    out.push({ ids: [], t0: t, t1: n });
+    t = n;
+  }
+  return out;
+}
+
+/**
+ * True when a cached media element's src must be refreshed to the clip
+ * url: blank or mismatched sources go stale during project load (nodes
+ * are cached while urls are still blank) and on id reuse. Never true for
+ * a blank clip url, so missing media can't clobber a good source.
+ */
+export const mediaSrcStale = (elSrc, clipUrl) => !!clipUrl && elSrc !== clipUrl;
+
+/**
  * Set the kept length directly (photo duration control). Stills have no real
  * media end, so the photo's duration extends to fit; anything else clamps to
  * its media length. Returns the applied kept seconds.

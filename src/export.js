@@ -10,7 +10,7 @@
 import { buildExportFilter } from "./effects.js";
 import { transById, pzById, GEOM } from "./gallery.js";
 import { computeLayout, keptDuration } from "./clipops.js";
-import { FADE_SECONDS, emphasisFactor } from "./audio.js";
+import { FADE_SECONDS, emphasisFactor, audioCutEnd } from "./audio.js";
 
 /* ------------------------------------------------------------ save presets
    SPEC §12 verified list. Everything renders mp4 (H.264 + AAC). */
@@ -685,7 +685,8 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
     stats.audioLegs++;
   });
   for (const ac of audioClips) {
-    const kept = Math.max(0, ac.out - ac.in);
+    // Auto-cut to the picture like the preview; the stored trim is untouched.
+    const kept = Math.max(0, audioCutEnd(ac.offset, ac.out - ac.in, layout.total) - ac.offset);
     if (kept <= 0.01) {
       warnings.push(`“${ac.name}” has no kept range — left out of the mix.`);
       continue;

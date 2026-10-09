@@ -17,6 +17,16 @@ export function fadeEnvelope(fadeIn, fadeOut, local, kept) {
   return env;
 }
 
+/** Effective sounding end of an audio clip auto-cut to the picture.
+ *  The stored trim is untouched, so growing the video reveals more audio
+ *  (up to its natural length). No clamp without video, or for clips that
+ *  start past the video end (they stay reachable as trailing audio). */
+export function audioCutEnd(offset, kept, videoEnd) {
+  const end = offset + Math.max(0, kept);
+  if (!(videoEnd > 0) || offset >= videoEnd) return end;
+  return Math.min(end, videoEnd);
+}
+
 /** Playhead position on the audio lane as a 0..1 fraction of the project. */
 export function audioLaneFraction(t, total) {
   if (!(total > 0)) return 0;
