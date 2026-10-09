@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Untitled Project — MacMovieMaker</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- ============ RIBBON ============ -->
+      <header id="ribbon">
+        <div class="tab-strip">
+          <div class="quick-access" role="toolbar" aria-label="Quick access">
+            <button class="qa-btn" id="btnSave" data-icon="save" title="Save project (Cmd/Ctrl+S)" aria-label="Save"></button>
+            <button class="qa-btn" id="btnUndo" data-icon="undo" title="Undo (Ctrl+Z)" disabled aria-label="Undo"></button>
+            <button class="qa-btn" id="btnRedo" data-icon="redo" title="Redo (Ctrl+Shift+Z)" disabled aria-label="Redo"></button>
+          </div>
+          <nav class="tabs" role="tablist" aria-label="Ribbon tabs">
+            <button class="tab" role="tab" data-tab="file">File</button>
+            <button class="tab active" role="tab" data-tab="home" aria-selected="true">Home</button>
+            <button class="tab" role="tab" data-tab="anim">Animations</button>
+            <button class="tab" role="tab" data-tab="fx">Visual Effects</button>
+            <button class="tab" role="tab" data-tab="project">Project</button>
+            <button class="tab" role="tab" data-tab="view">View</button>
+            <button class="tab contextual" role="tab" data-tab="edit" id="tabEdit" hidden><span class="ctx">Video Tools</span>Edit</button>
+            <button class="tab contextual green" role="tab" data-tab="format" id="tabFormat" hidden><span class="ctx">Text Tools</span>Format</button>
+            <button class="tab contextual amber" role="tab" data-tab="options" id="tabMusic" hidden><span class="ctx">Music Tools</span>Options</button>
+            <button class="tab contextual red" role="tab" data-tab="record" id="tabRecord" hidden><span class="ctx">Narration</span>Record</button>
+          </nav>
+        </div>
+
+        <div class="ribbon-body">
+          <!-- FILE backstage -->
+          <div class="panel" id="panel-file" role="tabpanel" hidden>
+            <div class="file-menu">
+              <button class="file-item" id="fileNew"><span class="ic" data-icon="file-new"></span>New project</button>
+              <button class="file-item" id="fileOpen"><span class="ic" data-icon="file-open"></span>Open project…</button>
+              <button class="file-item" id="fileSave"><span class="ic" data-icon="save"></span>Save project <kbd>&#8984;S</kbd></button>
+              <button class="file-item" id="fileSaveAs"><span class="ic" data-icon="save"></span>Save project as…</button>
+              <div class="file-sep"></div>
+              <div class="file-head">Save movie</div>
+              <div id="filePresetList"></div>
+              <button class="file-item" id="fileCustom"><span class="ic" data-icon="plus"></span>Create custom setting…</button>
+              <div class="file-sep"></div>
+              <div class="file-head">Publish movie</div>
+              <div id="fileShareList"></div>
+              <div class="file-sep"></div>
+              <div class="file-head">Recent projects</div>
+              <div id="fileRecentList"><div class="file-note">Nothing yet.</div></div>
+              <div class="file-note">Webcam import, Options and About arrive in a later milestone.</div>
+            </div>
+          </div>
+
+          <!-- HOME -->
+          <div class="panel" id="panel-home" role="tabpanel">
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" disabled title="Paste (coming in a later milestone)"><span class="ic" data-icon="paste"></span>Paste</button>
+                <button class="rbtn-sm" disabled title="Cut (coming in a later milestone)"><span class="ic" data-icon="cut"></span>Cut</button>
+                <button class="rbtn-sm" disabled title="Copy (coming in a later milestone)"><span class="ic" data-icon="copy"></span>Copy</button>
+              </div>
+              <div class="group-label">Clipboard</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls">
+                <button class="rbtn" id="btnAddMedia"><span class="ic big" data-icon="add-photo"></span><span class="lbl">Add videos<br />and photos</span></button>
+                <div class="col">
+                  <div class="dropdown">
+                    <button class="rbtn-sm" id="btnAddMusic" title="Add background music"><span class="ic" data-icon="music"></span>Add music ▾</button>
+                    <div class="menu" id="musicMenu" hidden>
+                      <button id="btnMusicStart">Add music…</button>
+                      <button id="btnMusicPoint">Add music at the current point…</button>
+                    </div>
+                  </div>
+                  <button class="rbtn-sm" id="btnRecordNarration" title="Record a voiceover while the project plays"><span class="ic" data-icon="mic"></span>Record narration</button>
+                  <button class="rbtn-sm" disabled title="Webcam capture (coming in a later milestone)"><span class="ic" data-icon="webcam"></span>Webcam video</button>
+                  <button class="rbtn-sm" id="btnSnapshot" title="Capture this frame as a photo clip"><span class="ic" data-icon="snapshot"></span>Snapshot</button>
+                </div>
+              </div>
+              <div class="group-label">Add</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnTitle" title="Insert a title card after the current clip"><span class="ic" data-icon="title"></span>Title</button>
+                <button class="rbtn-sm" id="btnCaption" title="Add a text overlay on the selected clip"><span class="ic" data-icon="caption"></span>Caption</button>
+                <button class="rbtn-sm" id="btnCredits" title="Append a scrolling credits card at the end"><span class="ic" data-icon="credits"></span>Credits</button>
+              </div>
+              <div class="group-label">Text</div>
+            </div>
+
+            <div class="group themes">
+              <div class="group-controls">
+                <div class="theme-gallery" aria-label="Automatic movie themes">
+                  <button class="theme" data-theme="default" title="Simple cross-dissolves between every clip."><span class="sw s1"></span>Default</button>
+                  <button class="theme" data-theme="sepia" title="Warm vintage tone with title cards."><span class="sw s2"></span>Sepia</button>
+                  <button class="theme" data-theme="bw" title="Classic monochrome with wipes and titles."><span class="sw s3"></span>Black and White</button>
+                  <button class="theme" data-theme="pz" title="Photos roam while clips push across."><span class="sw s4"></span>Pan and Zoom</button>
+                  <button class="theme" data-theme="fade" title="Slow fades through black, titles included."><span class="sw s5"></span>Fade</button>
+                  <button class="theme" data-theme="cinematic" title="Graded film look with slow moves."><span class="sw s6"></span>Cinematic</button>
+                  <button class="theme" data-theme="contemporary" title="Brisk pushes and punch-ins with titles."><span class="sw s7"></span>Contemporary</button>
+                </div>
+              </div>
+              <div class="group-label">Automatic movie</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnRotL" title="Rotate left 90°"><span class="ic" data-icon="rotl"></span>Rotate left</button>
+                <button class="rbtn-sm" id="btnRotR" title="Rotate right 90°"><span class="ic" data-icon="rotr"></span>Rotate right</button>
+                <button class="rbtn-sm" id="btnRemove" title="Remove the selected clip (Del)"><span class="ic" data-icon="remove"></span>Remove</button>
+                <button class="rbtn-sm" disabled title="Select all (coming in a later milestone)"><span class="ic" data-icon="select-all"></span>Select all</button>
+              </div>
+              <div class="group-label">Editing</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls">
+                <div class="dropdown">
+                  <button class="rbtn" id="btnSaveMovie" title="Save movie with the recommended setting — click ▾ for presets"><span class="ic big" data-icon="export"></span><span class="lbl">Save<br />movie &#9662;</span></button>
+                  <div class="menu" id="saveMovieMenu" hidden></div>
+                </div>
+                <div class="col share-col" id="shareCol" aria-label="Publish movie"></div>
+              </div>
+              <div class="group-label">Share</div>
+            </div>
+          </div>
+
+          <!-- VIDEO TOOLS > EDIT (contextual; visible while a clip is selected) -->
+          <div class="panel" id="panel-edit" role="tabpanel" hidden>
+            <div class="group">
+              <div class="group-controls col wide">
+                <label class="vol-row" id="volRow" title="Video volume">
+                  <span class="ic" data-icon="vol"></span>
+                  <input type="range" id="volSlider" min="0" max="100" value="100" aria-label="Video volume" />
+                </label>
+                <button class="rbtn-sm" id="btnMute" aria-pressed="false" title="Mute this clip"><span class="ic" data-icon="mute"></span><span id="muteLabel">Mute</span></button>
+              </div>
+              <div class="group-label">Volume</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnSetIn" title="Hide everything before the playhead (I)"><span class="ic" data-icon="in-point"></span>Set start point</button>
+                <button class="rbtn-sm" id="btnSetOut" title="Hide everything after the playhead (O)"><span class="ic" data-icon="out-point"></span>Set end point</button>
+                <button class="rbtn-sm" id="btnSplit" title="Split the clip at the playhead (M)"><span class="ic" data-icon="split"></span>Split</button>
+                <button class="rbtn-sm" id="btnTrimTool" title="Fine-tune the trim points"><span class="ic" data-icon="trim"></span>Trim tool</button>
+              </div>
+              <div class="group-label">Editing</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnERotL" title="Rotate left 90°"><span class="ic" data-icon="rotl"></span>Rotate left</button>
+                <button class="rbtn-sm" id="btnERotR" title="Rotate right 90°"><span class="ic" data-icon="rotr"></span>Rotate right</button>
+              </div>
+              <div class="group-label">Rotate</div>
+            </div>
+
+            <div class="group">
+              <div class="group-controls col">
+                <div class="duration-read" title="Length of the kept range">Duration <strong id="clipDuration">—</strong></div>
+                <button class="rbtn-sm" disabled title="Audio fades (coming in a later milestone)"><span class="ic" data-icon="fade"></span>Fade in / out ▾</button>
+                <button class="rbtn-sm" disabled title="Playback speed (coming in a later milestone)"><span class="ic" data-icon="speed"></span>Speed ▾</button>
+                <button class="rbtn-sm" disabled title="Stabilization (coming in a later milestone)"><span class="ic" data-icon="steady"></span>Stabilization ▾</button>
+              </div>
+              <div class="group-label">Adjust</div>
+            </div>
+          </div>
+
+          <!-- ANIMATIONS -->
+          <div class="panel wide" id="panel-anim" role="tabpanel" hidden>
+            <div class="group gallery-group">
+              <div class="group-controls col">
+                <div class="gallery" id="transGallery" role="listbox" aria-label="Transitions"></div>
+                <div class="trans-controls">
+                  <label class="dur-field">Duration
+                    <input type="number" id="transDuration" min="0.25" max="2" step="0.25" value="1" aria-label="Transition duration in seconds" />
+                    <span>s</span>
+                  </label>
+                  <button class="rbtn-sm" id="btnTransAll" title="Stamp this transition on every clip"><span class="ic" data-icon="select-all"></span>Apply to all</button>
+                </div>
+              </div>
+              <div class="group-label">Transitions</div>
+            </div>
+            <div class="group gallery-group">
+              <div class="group-controls col">
+                <div class="pz-groups" id="pzGallery"></div>
+                <div class="trans-controls">
+                  <button class="rbtn-sm" id="btnPzAll" title="Stamp this preset on every photo"><span class="ic" data-icon="select-all"></span>Apply to all photos</button>
+                </div>
+              </div>
+              <div class="group-label">Pan and zoom (photos only)</div>
+            </div>
+          </div>
+
+          <!-- Stub panels for the remaining tabs -->
+          <!-- VISUAL EFFECTS -->
+          <div class="panel wide" id="panel-fx" role="tabpanel" hidden>
+            <div class="group gallery-group">
+              <div class="group-controls col">
+                <div class="gallery" id="fxGallery" role="listbox" aria-label="Visual effects"></div>
+              </div>
+              <div class="group-label">Effects</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col wide">
+                <label class="vol-row" id="brightRow" title="Brightness">
+                  <span class="ic" data-icon="bright"></span>
+                  <input type="range" id="brightSlider" min="-100" max="100" value="0" aria-label="Brightness" />
+                </label>
+                <div class="duration-read">Adjust <strong id="brightVal">0</strong></div>
+              </div>
+              <div class="group-label">Brightness</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnFadeInB" aria-pressed="false" title="Fade in from black"><span class="ic" data-icon="fade"></span>Fade in <span class="swatch black"></span></button>
+                <button class="rbtn-sm" id="btnFadeOutB" aria-pressed="false" title="Fade out to black"><span class="ic" data-icon="fade"></span>Fade out <span class="swatch black"></span></button>
+                <button class="rbtn-sm" id="btnFadeInW" aria-pressed="false" title="Fade in from white"><span class="ic" data-icon="fade"></span>Fade in <span class="swatch white"></span></button>
+                <button class="rbtn-sm" id="btnFadeOutW" aria-pressed="false" title="Fade out to white"><span class="ic" data-icon="fade"></span>Fade out <span class="swatch white"></span></button>
+              </div>
+              <div class="group-label">Fades</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnFxAll" title="Stamp this look on every clip"><span class="ic" data-icon="select-all"></span>Apply to all</button>
+              </div>
+              <div class="group-label">Apply</div>
+            </div>
+          </div>
+          <!-- TEXT TOOLS > FORMAT (contextual; visible while text is selected) -->
+          <div class="panel wide" id="panel-format" role="tabpanel" hidden>
+            <div class="group">
+              <div class="group-controls col">
+                <label class="fmt-row">Font
+                  <select id="fmtFamily" aria-label="Font family">
+                    <option value="system">System</option>
+                    <option value="helvetica">Helvetica</option>
+                    <option value="georgia">Georgia</option>
+                    <option value="times">Times</option>
+                    <option value="courier">Courier</option>
+                    <option value="verdana">Verdana</option>
+                    <option value="trebuchat">Trebuchet</option>
+                    <option value="palatino">Palatino</option>
+                  </select>
+                </label>
+                <div class="fmt-row">
+                  <label>Size <input type="number" id="fmtSize" min="8" max="160" step="1" value="48" aria-label="Font size" /></label>
+                  <button class="mini-toggle" id="fmtBold" aria-pressed="false" title="Bold"><b>B</b></button>
+                  <button class="mini-toggle" id="fmtItalic" aria-pressed="false" title="Italic"><i>I</i></button>
+                  <label class="color-well" title="Font color">A<input type="color" id="fmtColor" value="#ffffff" aria-label="Font color" /></label>
+                </div>
+                <label class="vol-row" title="Text opacity">
+                  <span class="ic" data-icon="opacity"></span>
+                  <input type="range" id="fmtOpacity" min="10" max="100" value="100" aria-label="Text opacity" />
+                </label>
+              </div>
+              <div class="group-label">Font</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <div class="fmt-row">
+                  <button class="mini-toggle" id="fmtAlignL" title="Align left" aria-label="Align left"><span class="ic" data-icon="align-l"></span></button>
+                  <button class="mini-toggle" id="fmtAlignC" title="Align center" aria-label="Align center"><span class="ic" data-icon="align-c"></span></button>
+                  <button class="mini-toggle" id="fmtAlignR" title="Align right" aria-label="Align right"><span class="ic" data-icon="align-r"></span></button>
+                </div>
+              </div>
+              <div class="group-label">Paragraph</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="fmtEditText" title="Edit the text"><span class="ic" data-icon="edit-text"></span>Edit text</button>
+                <label class="rbtn-sm" id="fmtBgRow" title="Card background color"><span class="ic" data-icon="bg-fill"></span>Background <input type="color" id="fmtBg" value="#1f2937" aria-label="Background color" /></label>
+                <label class="rbtn-sm" title="Text duration in seconds">Duration <input type="number" id="fmtDuration" min="0.5" max="60" step="0.5" value="7" aria-label="Text duration" /></label>
+                <button class="rbtn-sm" id="fmtRemoveCaption" title="Remove this caption"><span class="ic" data-icon="remove"></span>Remove caption</button>
+              </div>
+              <div class="group-label">Adjust</div>
+            </div>
+            <div class="group gallery-group">
+              <div class="group-controls col">
+                <div class="gallery" id="animGallery" role="listbox" aria-label="Title animations"></div>
+              </div>
+              <div class="group-label">Animation</div>
+            </div>
+          </div>
+
+          <!-- MUSIC TOOLS > OPTIONS (contextual; visible while audio is selected) -->
+          <div class="panel" id="panel-options" role="tabpanel" hidden>
+            <div class="group">
+              <div class="group-controls col wide">
+                <label class="vol-row" title="Music volume">
+                  <span class="ic" data-icon="vol"></span>
+                  <input type="range" id="musicVol" min="0" max="100" value="100" aria-label="Music volume" />
+                </label>
+              </div>
+              <div class="group-label">Volume</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <label class="fmt-row">Fade in
+                  <select id="musicFadeIn" aria-label="Music fade in">
+                    <option value="none">None</option>
+                    <option value="slow">Slow</option>
+                    <option value="medium">Medium</option>
+                    <option value="fast">Fast</option>
+                  </select>
+                </label>
+                <label class="fmt-row">Fade out
+                  <select id="musicFadeOut" aria-label="Music fade out">
+                    <option value="none">None</option>
+                    <option value="slow">Slow</option>
+                    <option value="medium">Medium</option>
+                    <option value="fast">Fast</option>
+                  </select>
+                </label>
+              </div>
+              <div class="group-label">Fades</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <label class="rbtn-sm" title="Where the audio starts on the timeline">Start time <input type="number" id="musicOffset" min="0" max="3600" step="0.5" value="0" aria-label="Start time" /></label>
+                <label class="rbtn-sm" title="Trim start within the audio file">Start point <input type="number" id="musicIn" min="0" max="3600" step="0.5" value="0" aria-label="Start point" /></label>
+                <label class="rbtn-sm" title="Trim end within the audio file">End point <input type="number" id="musicOut" min="0" max="3600" step="0.5" value="0" aria-label="End point" /></label>
+              </div>
+              <div class="group-label">Timing</div>
+            </div>
+          </div>
+
+          <!-- NARRATION RECORD (opened from Home, closed by Stop/Cancel) -->
+          <div class="panel" id="panel-record" role="tabpanel" hidden>
+            <div class="group">
+              <div class="group-controls">
+                <button class="rbtn rec" id="btnNarrRecord"><span class="ic big" data-icon="rec-dot"></span><span class="lbl">Record</span></button>
+                <button class="rbtn" id="btnNarrStop" disabled><span class="ic big" data-icon="stop-sq"></span><span class="lbl">Stop</span></button>
+                <button class="rbtn" id="btnNarrCancel"><span class="ic big" data-icon="remove"></span><span class="lbl">Cancel</span></button>
+                <div class="narr-side">
+                  <div class="meter" id="narrMeter" title="Microphone level"><div class="fill" id="narrLevel"></div></div>
+                  <div class="narr-status" id="narrStatus">Ready — press Record.</div>
+                </div>
+              </div>
+              <div class="group-label">Record Narration</div>
+            </div>
+          </div>
+
+          <!-- PROJECT -->
+          <div class="panel" id="panel-project" role="tabpanel" hidden>
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm mix-btn" data-emphasis="video" aria-pressed="false" title="Duck music and narration under video audio"><span class="ic" data-icon="film"></span>Emphasize video</button>
+                <button class="rbtn-sm mix-btn" data-emphasis="music" aria-pressed="false" title="Duck video and narration under music"><span class="ic" data-icon="music"></span>Emphasize music</button>
+                <button class="rbtn-sm mix-btn" data-emphasis="narration" aria-pressed="false" title="Duck video and music under narration"><span class="ic" data-icon="mic"></span>Emphasize narration</button>
+                <button class="rbtn-sm mix-btn" data-emphasis="none" aria-pressed="true" title="Mix all tracks at full level"><span class="ic" data-icon="select-all"></span>No emphasis</button>
+              </div>
+              <div class="group-label">Audio mix</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm" id="btnFitMusic" title="Stretch photo durations so the slideshow ends with the music"><span class="ic" data-icon="fit"></span>Fit to music</button>
+              </div>
+              <div class="group-label">Fit</div>
+            </div>
+            <div class="group">
+              <div class="group-controls col">
+                <button class="rbtn-sm aspect-btn" data-aspect="16:9" aria-pressed="true" title="Widescreen project"><span class="ic" data-icon="wide"></span>Widescreen (16:9)</button>
+                <button class="rbtn-sm aspect-btn" data-aspect="4:3" aria-pressed="false" title="Standard project"><span class="ic" data-icon="square"></span>Standard (4:3)</button>
+              </div>
+              <div class="group-label">Aspect ratio</div>
+            </div>
+          </div>
+          <div class="panel stub" id="panel-view" role="tabpanel" hidden>
+            <div class="stub-note"><strong>View</strong><span>Zoom and layout options arrive in a later milestone.</span></div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ============ WORKSPACE ============ -->
+      <main id="workspace">
+        <section id="monitorPane" aria-label="Preview monitor">
+          <div id="screen">
+            <canvas id="stage" width="960" height="540"></canvas>
+            <video id="deckA" class="deck" playsinline preload="auto" crossorigin="anonymous"></video>
+            <video id="deckB" class="deck" playsinline preload="auto" crossorigin="anonymous"></video>
+            <video id="hoverA" class="deck" playsinline preload="auto" muted crossorigin="anonymous"></video>
+            <video id="hoverB" class="deck" playsinline preload="auto" muted crossorigin="anonymous"></video>
+            <div id="screenEmpty">
+              <span class="ic xl" data-icon="film"></span>
+              <p>No clip selected.<br />Add videos or photos to begin.</p>
+            </div>
+            <div id="screenNotice" hidden></div>
+          </div>
+          <div class="readout-row">
+            <span id="timeReadout" aria-label="Elapsed and total time">00:00.00/00:00.00</span>
+            <button id="btnFullscreen" title="Fullscreen preview (F11)" aria-label="Fullscreen preview"><span class="ic" data-icon="fullscreen"></span></button>
+          </div>
+          <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Seek" />
+          <div class="transport" role="toolbar" aria-label="Transport">
+            <button id="btnPrevFrame" title="Previous frame" aria-label="Previous frame"><span class="ic" data-icon="prev"></span></button>
+            <button id="btnPlay" title="Play / pause (Space)" aria-label="Play or pause"><span class="ic" data-icon="play"></span></button>
+            <button id="btnNextFrame" title="Next frame" aria-label="Next frame"><span class="ic" data-icon="next"></span></button>
+          </div>
+        </section>
+
+        <section id="boardPane" aria-label="Storyboard">
+          <div id="strip"></div>
+          <button id="dropzone">
+            <span class="ic xl" data-icon="add-photo"></span>
+            <span class="dz-title">Drop videos or photos here</span>
+            <span class="dz-sub">or click to browse…</span>
+          </button>
+          <div id="audioLane" aria-label="Audio track">
+            <div id="audioBars"></div>
+            <div id="audioEmpty">Music and narration appear here — add music from the Home tab.</div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ============ STATUS BAR ============ -->
+      <footer id="statusbar">
+        <span id="itemCount">No clips</span>
+        <span id="statusHint" role="status"></span>
+        <div class="zoom-controls">
+          <button id="btnFit" title="Fit thumbnails" aria-label="Fit thumbnails"><span class="ic" data-icon="fit"></span></button>
+          <button id="btnZoomOut" title="Zoom out (−)" aria-label="Zoom out"><span class="ic" data-icon="minus"></span></button>
+          <input type="range" id="zoom" min="0" max="100" value="35" aria-label="Storyboard zoom" />
+          <button id="btnZoomIn" title="Zoom in (+)" aria-label="Zoom in"><span class="ic" data-icon="plus"></span></button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Text editor overlay -->
+    <div id="textEditor" hidden>
+      <div class="dialog editor" role="dialog" aria-modal="true" aria-labelledby="textEditTitle">
+        <h2 id="textEditTitle">Edit text</h2>
+        <textarea id="textEditArea" rows="5" aria-label="Text content"></textarea>
+        <div class="dialog-buttons">
+          <button id="textEditCancel">Cancel</button>
+          <button id="textEditSave" class="primary">Save</button>
+        </div>
+        <p class="dialog-sub">Enter starts a new line · ⌘/Ctrl+Enter saves · Esc cancels</p>
+      </div>
+    </div>
+
+    <!-- Trim tool dialog -->
+    <div id="trimOverlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="trimTitle">
+        <h2 id="trimTitle">Trim clip</h2>
+        <p class="dialog-sub" id="trimClipName"></p>
+        <div class="trim-row">
+          <label for="trimStart">Start point</label>
+          <input type="range" id="trimStart" min="0" max="10" step="0.01" value="0" />
+          <span class="trim-val" id="trimStartVal">00:00.00</span>
+        </div>
+        <div class="trim-row">
+          <label for="trimEnd">End point</label>
+          <input type="range" id="trimEnd" min="0" max="10" step="0.01" value="10" />
+          <span class="trim-val" id="trimEndVal">00:00.00</span>
+        </div>
+        <p class="dialog-sub">Kept: <strong id="trimKept">00:00.00</strong> — trimming hides footage; nothing is deleted.</p>
+        <div class="dialog-buttons">
+          <button id="trimCancel">Cancel</button>
+          <button id="trimSave" class="primary">Save trim</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export progress -->
+    <div id="exportOverlay" hidden>
+      <div class="dialog export" role="dialog" aria-modal="true" aria-labelledby="expTitle">
+        <h2 id="expTitle">Saving movie…</h2>
+        <p class="dialog-sub" id="expPhase">Preparing…</p>
+        <div class="progress" role="progressbar" aria-label="Export progress"><div class="fill" id="expFill"></div></div>
+        <p class="dialog-sub" id="expStats"></p>
+        <div id="expWarnings" hidden></div>
+        <div class="dialog-buttons">
+          <button id="expCancel">Cancel</button>
+          <button id="expClose" class="primary" hidden>Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom save setting -->
+    <div id="customOverlay" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="custTitle">
+        <h2 id="custTitle">Create custom setting</h2>
+        <p class="dialog-sub">Saved under Recent settings for reuse.</p>
+        <label class="cust-row">Name <input type="text" id="custName" value="My setting" maxlength="40" aria-label="Setting name" /></label>
+        <div class="cust-row"><span>Resolution</span>
+          <input type="number" id="custW" min="160" max="3840" step="2" value="1280" aria-label="Width" /> ×
+          <input type="number" id="custH" min="120" max="2160" step="2" value="720" aria-label="Height" />
+        </div>
+        <label class="cust-row">Video bitrate <input type="number" id="custVbr" min="0.5" max="50" step="0.5" value="8" aria-label="Video megabits per second" /> Mbps</label>
+        <label class="cust-row">Frame rate
+          <select id="custFps" aria-label="Frames per second"><option>24</option><option>25</option><option selected>30</option><option>50</option><option>60</option></select> fps</label>
+        <p class="dialog-sub" id="custEst"></p>
+        <div class="dialog-buttons">
+          <button id="custCancel">Cancel</button>
+          <button id="custSave" class="primary">Save setting</button>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="browserFallbackInput" hidden multiple accept="video/*,image/*" />
+    <input type="file" id="browserAudioInput" hidden accept="audio/*" />
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

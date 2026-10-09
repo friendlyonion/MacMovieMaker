@@ -1,0 +1,23 @@
+{
+  "name": "macmoviemaker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MacMovieMaker — a simple macOS desktop video editor.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test": "node --test tests/clipops.test.mjs tests/gallery.test.mjs tests/render.test.mjs tests/effects.test.mjs tests/textanim.test.mjs tests/media-cors.test.mjs tests/audio.test.mjs tests/automovie.test.mjs tests/wiring.test.mjs tests/export.test.mjs tests/project.test.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-fs": "^2.6.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "vite": "^7"
+  }
+}
