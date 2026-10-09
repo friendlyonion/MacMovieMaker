@@ -365,6 +365,8 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
   /* ---- joins ---- */
   let joinN = 0;
   const customJoin = (aLabel, bLabel, kind, dur, off, keptB) => {
+    dur = Math.max(1 / fps, Math.round(dur * fps) / fps);
+    off = Math.round(off * fps) / fps;
     const j = joinN++;
     const NF = Math.max(1, Math.round(dur * fps));
     const needPre = off > 0.5 / fps;
@@ -412,7 +414,11 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
     if (needPost) order.push(`post${j}`);
     if (order.length === 1) return mOut;
     const out = `vj${j}`;
-    chains.push(`[${order.join("][")}]concat=n=${order.length}:v=1:a=0[${out}]`);
+    // concat emits microsecond timebase with unknown rate; xfade needs
+    // matching timebases and known CFR downstream, so every join output
+    // is reclocked here (lossless: concat preserves durations).
+    chains.push(`[${order.join("][")}]concat=n=${order.length}:v=1:a=0[vcj${j}]`);
+    chains.push(`[vcj${j}]fps=${fps}[${out}]`);
     return out;
   };
 
@@ -422,6 +428,8 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
   // preview's paintGeom draws), so export matches preview by
   // construction.
   const geomJoin = (aLabel, bLabel, kind, dur, off, keptB) => {
+    dur = Math.max(1 / fps, Math.round(dur * fps) / fps);
+    off = Math.round(off * fps) / fps;
     const j = joinN++;
     const NF = Math.max(1, Math.round(dur * fps));
     const needPre = off > 0.5 / fps;
@@ -553,7 +561,11 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
     if (needPost) order.push(`postg${j}`);
     if (order.length === 1) return curLbl;
     const out = `vj${j}`;
-    chains.push(`[${order.join("][")}]concat=n=${order.length}:v=1:a=0[${out}]`);
+    // concat emits microsecond timebase with unknown rate; xfade needs
+    // matching timebases and known CFR downstream, so every join output
+    // is reclocked here (lossless: concat preserves durations).
+    chains.push(`[${order.join("][")}]concat=n=${order.length}:v=1:a=0[vcj${j}]`);
+    chains.push(`[vcj${j}]fps=${fps}[${out}]`);
     return out;
   };
 
@@ -588,7 +600,8 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
     if (!id || id === "none" || dur <= 0 || !transById(id)) {
       if (id && id !== "none" && !transById(id)) warnings.push(`Unknown transition “${id}” — joined with a cut.`);
       const out = `vc${i}`;
-      chains.push(`[${cur}][${leg}]concat=n=2:v=1:a=0[${out}]`);
+      chains.push(`[${cur}][${leg}]concat=n=2:v=1:a=0[vcp${i}]`);
+      chains.push(`[vcp${i}]fps=${fps}[${out}]`);
       stats.joins.concat++;
       cur = out;
       return;
@@ -608,7 +621,8 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
     } else {
       warnings.push(`Transition “${id}” has no export mapping — joined with a cut.`);
       const out = `vc${i}`;
-      chains.push(`[${cur}][${leg}]concat=n=2:v=1:a=0[${out}]`);
+      chains.push(`[${cur}][${leg}]concat=n=2:v=1:a=0[vcp${i}]`);
+      chains.push(`[vcp${i}]fps=${fps}[${out}]`);
       stats.joins.concat++;
       cur = out;
     }
@@ -619,7 +633,8 @@ export function buildExportPlan({ clips, audioClips, emphasis = "none", preset, 
   if (tail > 0.05) {
     const k = `btail`;
     chains.push(`color=c=black:s=${W}x${H}:d=${f3(tail)}:r=${fps},fps=${fps},format=yuv420p[${k}]`);
-    chains.push(`[${cur}][${k}]concat=n=2:v=1:a=0[vcat]`);
+    chains.push(`[${cur}][${k}]concat=n=2:v=1:a=0[vctb]`);
+    chains.push(`[vctb]fps=${fps}[vcat]`);
     cur = "vcat";
   }
 

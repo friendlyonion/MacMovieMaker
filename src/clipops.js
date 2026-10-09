@@ -45,6 +45,74 @@ export function setOutPoint(clip, t) {
   return clip.out;
 }
 
+export const PHOTO_DUR_MIN = 0.5; // shortest a still may show, seconds
+export const PHOTO_DUR_MAX = 60; // sanity cap for photo durations
+
+/* --------------------------------- timeline axis: one linear project-time
+   scale shared by the video strip and the audio lane, so music lines up
+   under the clips it plays over and one playhead serves both lanes. */
+export const LANE_PX_MIN = 6; // px per project-second at zoom 0
+export const LANE_PX_MAX = 90; // px per project-second at zoom 100
+export const NARROW_CHIP_PX = 92; // chips below this width hide their pills
+
+/** Zoom slider 0..100 -> px per project-second. */
+export const pxPerSecForZoom = (v) =>
+  LANE_PX_MIN + (clamp(v, 0, 100) / 100) * (LANE_PX_MAX - LANE_PX_MIN);
+
+/** Inverse map, so Fit can park the slider where the project fits. */
+export const zoomForPxPerSec = (pps) =>
+  clamp(((pps - LANE_PX_MIN) / (LANE_PX_MAX - LANE_PX_MIN)) * 100, 0, 100);
+
+/** True when a kept range renders too narrow for its badge pills. */
+export const isNarrowChip = (kept, pps) => kept * pps < NARROW_CHIP_PX;
+
+/**
+ * Pack time spans into wrapped timeline rows.
+ * spans: [{ id, w, t0, t1, splitOk }] in time order (w = px at scale).
+ * A row breaks before span j when it would overflow maxW — except a span
+ * carrying a transition (splitOk=false) stays with its outgoing partner
+ * unless the row is already overfull, so blends never straddle rows.
+ * Returns rows: [{ ids, t0, t1 }] with contiguous spans (t1[i] = t0[i+1]).
+ */
+export function packTimelineRows(spans, maxW) {
+  const rows = [];
+  let cur = null;
+  for (const sp of spans) {
+    const w = Math.max(0, sp.w);
+    if (cur && cur.w + w > maxW && (sp.splitOk !== false || cur.w > maxW)) {
+      rows.push(cur);
+      cur = null;
+    }
+    if (!cur) cur = { ids: [], t0: sp.t0, t1: sp.t1, w: 0 };
+    cur.ids.push(sp.id);
+    cur.w += w;
+    cur.t1 = sp.t1;
+  }
+  if (cur) rows.push(cur);
+  rows.forEach((r, i) => {
+    if (i + 1 < rows.length) r.t1 = rows[i + 1].t0;
+    delete r.w;
+  });
+  return rows;
+}
+
+/**
+ * Set the kept length directly (photo duration control). Stills have no real
+ * media end, so the photo's duration extends to fit; anything else clamps to
+ * its media length. Returns the applied kept seconds.
+ */
+export function setKeptDuration(clip, seconds) {
+  const lo = Math.max(MIN_RANGE, PHOTO_DUR_MIN);
+  let want = clamp(Number(seconds) || 0, lo, PHOTO_DUR_MAX);
+  if (clip.kind !== "image") {
+    want = Math.min(want, Math.max(lo, clip.duration - clip.in));
+  } else {
+    clip.duration = Math.max(clip.duration, clip.in + want);
+  }
+  clip.out = clip.in + want;
+  return keptDuration(clip);
+}
+
 /** True when the playhead is far enough inside the kept range to split. */
 export function splitPointValid(clip, t) {
   return t > clip.in + SPLIT_MARGIN && t < clip.out - SPLIT_MARGIN;

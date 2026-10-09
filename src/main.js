@@ -15,6 +15,9 @@ import {
   keptDuration,
   setInPoint,
   setOutPoint,
+  setKeptDuration,
+  PHOTO_DUR_MIN,
+  PHOTO_DUR_MAX,
   splitPointValid,
   splitClip,
   deleteClip,
@@ -28,6 +31,10 @@ import {
   moveClipIn,
   insertionGap,
   reorderChanged,
+  pxPerSecForZoom,
+  zoomForPxPerSec,
+  isNarrowChip,
+  packTimelineRows,
 } from "./clipops.js";
 import {
   TRANSITIONS,
@@ -57,7 +64,6 @@ import {
   fadeEnvelope,
   emphasisFactor,
   scaleSpans,
-  audioLaneFraction,
   mimeForExt,
   narrationFileName,
   AUDIO_EXTS,
@@ -214,7 +220,7 @@ for (const id of ["strip", "dropzone", "itemCount", "statusHint", "stage",
   "btnUndo", "btnRedo", "zoom", "btnZoomIn", "btnZoomOut", "btnFit", "boardPane",
   "browserFallbackInput", "monitorPane", "tabEdit", "volSlider", "volRow", "btnMute",
   "muteLabel", "btnSetIn", "btnSetOut", "btnSplit", "btnTrimTool", "btnERotL", "btnERotR",
-  "clipDuration", "trimOverlay", "trimClipName", "trimStart", "trimEnd", "trimStartVal",
+  "clipDuration", "clipDurationField", "clipDurationInput", "trimOverlay", "trimClipName", "trimStart", "trimEnd", "trimStartVal",
   "trimEndVal", "trimKept", "trimSave", "trimCancel", "transGallery", "pzGallery",
   "transDuration", "btnTransAll", "btnPzAll", "deckA", "deckB", "hoverA", "hoverB",
   "tabFormat", "btnTitle", "btnCaption", "btnCredits", "fxGallery", "brightSlider",
@@ -224,23 +230,25 @@ for (const id of ["strip", "dropzone", "itemCount", "statusHint", "stage",
   "fmtDuration", "fmtRemoveCaption", "animGallery", "textEditor", "textEditArea",
   "textEditSave", "textEditCancel", "tabMusic", "tabRecord", "btnAddMusic",
   "musicMenu", "btnMusicStart", "btnMusicPoint", "btnRecordNarration", "btnSnapshot",
-  "audioBars", "audioEmpty", "musicVol", "musicFadeIn", "musicFadeOut", "musicOffset",
+  "audioLane", "audioEmpty", "musicVol", "musicFadeIn", "musicFadeOut", "musicOffset",
   "musicIn", "musicOut", "btnNarrRecord", "btnNarrStop", "btnNarrCancel", "narrLevel",
   "narrStatus", "btnFitMusic", "browserAudioInput", "btnSave",
   "fileNew", "fileOpen", "fileSave", "fileSaveAs", "filePresetList", "fileCustom",
   "fileRecentList", "btnSaveMovie", "saveMovieMenu",
   "exportOverlay", "expTitle", "expPhase", "expFill", "expStats", "expWarnings",
+  "savePulse", "savePulseText",
   "expCancel", "expClose", "customOverlay", "custName", "custW", "custH",
   "custVbr", "custFps", "custEst", "custCancel", "custSave"]) {
   els[id] = $(id);
 }
 
-const stripPlayhead = document.createElement("div");
-stripPlayhead.className = "playhead-line";
-stripPlayhead.hidden = true;
-const audioPlayhead = document.createElement("div");
-audioPlayhead.className = "playhead-line";
-audioPlayhead.hidden = true;
+const timelinePlayhead = document.createElement("div");
+timelinePlayhead.className = "playhead-line";
+timelinePlayhead.hidden = true;
+// Current timeline scale in px per project-second; applyZoom() owns it.
+let lanePxPerSec = 35;
+// Packed row spans [{ ids, t0, t1 }]; layoutTimelineRows() rebuilds these.
+let tlRows = [];
 
 const stageCtx = els.stage.getContext("2d");
 let STAGE_W = els.stage.width, STAGE_H = els.stage.height;
@@ -479,16 +487,41 @@ function chipTitle(clip) {
 function renderStrip() {
   els.strip.innerHTML = "";
   els.dropzone.hidden = clips.length > 0;
-  for (const clip of clips) {
-    const b = document.createElement("button");
-    b.className = "clip" + (clip.id === selectedId ? " selected" : "");
-    b.dataset.id = clip.id;
-    b.title = chipTitle(clip);
-    const kept = keptDuration(clip);
-    const label = kept > 0 ? fmtTime(kept).slice(0, 5) : "--:--";
-    b.innerHTML = `
+  layoutTimelineRows();
+  const order = new Map(clips.map((c, i) => [c.id, i]));
+  tlRows.forEach((row, ri) => {
+    if (!row.ids.length) return; // audio-only state: no video row
+    const rowEl = document.createElement("div");
+    rowEl.className = "tl-row video";
+    rowEl.dataset.row = ri;
+    rowEl.dataset.t0 = row.t0;
+    rowEl.dataset.t1 = row.t1;
+    // Video rows cover their chips edge to edge (transition tails included).
+    let end = row.t1;
+    for (const id of row.ids) {
+      const se = segOfClip(id);
+      if (se) end = Math.max(end, se.end);
+    }
+    const span = Math.max(0.001, end - row.t0);
+    rowEl.style.width = `${Math.max(1, Math.round(span * lanePxPerSec))}px`;
+    row.ids.forEach((id, k) => {
+      const clip = clipsById().get(id);
+      if (!clip) return;
+      const seg = segOfClip(id);
+      const kept = keptDuration(clip);
+      const narrow = isNarrowChip(kept, lanePxPerSec);
+      const b = document.createElement("button");
+      b.className = "clip" + (clip.id === selectedId ? " selected" : "") + (narrow ? " narrow" : "");
+      b.dataset.id = clip.id;
+      b.title = chipTitle(clip);
+      b.style.left = `${(((seg ? seg.bodyStart : row.t0) - row.t0) / span) * 100}%`;
+      b.style.width = `${Math.max(0.4, (kept / span) * 100)}%`;
+      b.style.zIndex = String((order.get(id) ?? 0) + 1 + (narrow ? 1000 : 0));
+      const label = kept > 0 ? fmtTime(kept).slice(0, 5) : "--:--";
+      b.innerHTML = `
       ${clip.transition ? `<span class="trans-flag"></span>` : ""}
       <span class="film">
+        <span class="film-edge" aria-hidden="true"></span>
         <span class="sprockets"></span>
         <span class="thumb">${clip.thumb ? `<img src="${clip.thumb}" alt="" draggable="false" />` : `<span class="unplayable">${clip.playable ? "No preview" : "Preview unavailable"}</span>`}
           ${isTrimmed(clip) ? `<span class="trimmed-flag">Trimmed</span>` : ""}
@@ -499,15 +532,22 @@ function renderStrip() {
       </span>
       ${clip.caption ? `<span class="caption-bar"><span>T</span></span>` : ""}
       <span class="clip-name">${escapeHtml(clip.name)}</span>`;
-    b.addEventListener("click", () => {
-      if (suppressStripClick) { suppressStripClick = false; return; }
-      selectClip(clip.id);
+      // Outgoing tails slide under the incoming blend; keep the badge clear.
+      const incoming = k + 1 < row.ids.length ? segOfClip(row.ids[k + 1]) : null;
+      const coverPx = incoming?.x ? incoming.x.dur * lanePxPerSec : 0;
+      if (coverPx > 1) b.querySelector(".badge").style.right = `${Math.round(coverPx) + 4}px`;
+      b.addEventListener("click", () => {
+        if (suppressStripClick) { suppressStripClick = false; return; }
+        selectClip(clip.id);
+      });
+      b.addEventListener("mousedown", (e) => beginStripDrag(e, clip.id));
+      rowEl.appendChild(b);
     });
-    b.addEventListener("mousedown", (e) => beginStripDrag(e, clip.id));
-    els.strip.appendChild(b);
-  }
-  els.strip.appendChild(stripPlayhead);
+    els.strip.appendChild(rowEl);
+  });
+  els.boardPane.appendChild(timelinePlayhead);
   renderAudioLane();
+  updatePlayheads();
   updateStatus();
 }
 
@@ -1316,38 +1356,44 @@ function updateReadout(loc) {
   if (!f) {
     els.scrub.value = 0;
     els.timeReadout.textContent = "00:00.00/00:00.00";
-    updatePlayheads(null);
+    updatePlayheads();
     return;
   }
   const total = keptDuration(f.clip);
   const elapsed = clamp(f.local - f.clip.in, 0, total);
   if (!scrubHeld && total > 0) els.scrub.value = Math.round((elapsed / total) * 1000);
   els.timeReadout.textContent = `${fmtTime(elapsed)}/${fmtTime(total)}`;
-  updatePlayheads(f);
+  updatePlayheads();
 }
 
 /* -------------------------------------------------------------- playheads */
-function updatePlayheads(f) {
-  const total = projectTotal();
-  const showAudio = total > 0 && (clips.length > 0 || audioClips.length > 0);
-  audioPlayhead.hidden = !showAudio;
-  if (showAudio) {
-    audioPlayhead.style.left = `${audioLaneFraction(T, total) * 100}%`;
-  }
-  // Scrub indicator parks on the current thumbnail (paused or playing),
-  // drawn over the picture area only so it reads as a position marker.
-  const btn = f ? els.strip.querySelector(`[data-id="${f.clip.id}"]`) : null;
-  const film = btn ? btn.querySelector(".film") : null;
-  stripPlayhead.hidden = !film;
-  if (btn && film) {
-    const kept = Math.max(keptDuration(f.clip), 0.001);
-    const frac = clamp((f.local - f.clip.in) / kept, 0, 1);
-    const pad = 2;
-    stripPlayhead.style.left =
-      `${btn.offsetLeft + film.offsetLeft + pad + frac * Math.max(1, film.offsetWidth - pad * 2)}px`;
-    stripPlayhead.style.top = `${btn.offsetTop + film.offsetTop}px`;
-    stripPlayhead.style.height = `${film.offsetHeight}px`;
-    if (playing) btn.scrollIntoView({ block: "nearest" });
+// One playhead for the whole timeline: it lives in whichever wrapped row
+// holds T and crosses that row's video + audio pair together.
+function updatePlayheads() {
+  const show = tlRows.length > 0;
+  timelinePlayhead.hidden = !show;
+  if (!show) return;
+  let ri = tlRows.findIndex((r) => T < r.t1 - 1e-6);
+  if (ri < 0) ri = tlRows.length - 1;
+  const row = tlRows[ri];
+  const span = Math.max(0.001, row.t1 - row.t0);
+  const x = els.strip.offsetLeft + clamp(T - row.t0, 0, span) * lanePxPerSec;
+  const vRow = els.strip.querySelector(`.tl-row.video[data-row="${ri}"]`);
+  const aRow = els.strip.querySelector(`.tl-row.audio[data-row="${ri}"]`);
+  const first = vRow ?? aRow;
+  const last = aRow ?? vRow;
+  const top = first ? els.strip.offsetTop + first.offsetTop : els.strip.offsetTop;
+  const bottom = last ? els.strip.offsetTop + last.offsetTop + last.offsetHeight : top + 1;
+  timelinePlayhead.style.left = `${x}px`;
+  timelinePlayhead.style.top = `${top}px`;
+  timelinePlayhead.style.bottom = "auto";
+  timelinePlayhead.style.height = `${Math.max(1, bottom - top)}px`;
+  if (playing) { // keep the sweeping playhead in view on both axes
+    const pane = els.boardPane;
+    if (x < pane.scrollLeft + 40) pane.scrollLeft = Math.max(0, x - 80);
+    else if (x > pane.scrollLeft + pane.clientWidth - 40) pane.scrollLeft = x - pane.clientWidth + 80;
+    if (top < pane.scrollTop + 20) pane.scrollTop = Math.max(0, top - 40);
+    else if (bottom > pane.scrollTop + pane.clientHeight - 20) pane.scrollTop = bottom - pane.clientHeight + 40;
   }
 }
 
@@ -1599,7 +1645,18 @@ function refreshEditPanel() {
   els.volSlider.disabled = !canAudio;
   els.volRow.classList.toggle("disabled", !canAudio);
   els.btnMute.disabled = !canAudio;
-  els.clipDuration.textContent = clip ? `${keptDuration(clip).toFixed(2)} s` : "—";
+  const canDur = !!clip && clip.kind === "image";
+  els.clipDuration.hidden = canDur;
+  els.clipDurationField.hidden = !canDur;
+  if (clip) {
+    if (canDur) {
+      els.clipDurationInput.value = Math.round(keptDuration(clip) * 100) / 100;
+    } else {
+      els.clipDuration.textContent = `${keptDuration(clip).toFixed(2)} s`;
+    }
+  } else {
+    els.clipDuration.textContent = "—";
+  }
   if (clip) applyVolumeUI(clip);
 }
 
@@ -2343,63 +2400,106 @@ function selectAudio(id) {
 }
 
 function renderAudioLane() {
-  const bars = els.audioBars;
-  bars.innerHTML = "";
+  els.strip.querySelectorAll(".tl-row.audio").forEach((el) => el.remove());
   els.audioEmpty.hidden = audioClips.length > 0;
-  const total = Math.max(projectTotal(), 0.001);
-  for (const clip of audioClips) {
-    const kept = Math.max(0, clip.out - clip.in);
-    const b = document.createElement("button");
-    b.className =
-      "audio-bar" +
-      (clip.kind === "narration" ? " narration" : "") +
-      (clip.id === selectedAudioId ? " selected" : "");
-    b.style.left = `${(clip.offset / total) * 100}%`;
-    b.style.width = `${Math.max(1.5, (kept / total) * 100)}%`;
-    b.title = `${clip.name} — drag middle to move, drag edges to trim, Del to remove`;
-    b.dataset.id = clip.id;
-    const cv = document.createElement("canvas");
-    cv.width = 300;
-    cv.height = 40;
-    const tag = document.createElement("span");
-    tag.className = "tag";
-    tag.textContent = `${clip.kind === "music" ? "Music" : "Narr."} · ${clip.name}`;
-    b.append(cv, tag);
-    b.addEventListener("pointerdown", (e) => beginAudioDrag(e, clip.id));
-    b.addEventListener("click", () => selectAudio(clip.id));
-    for (const side of ["in", "out"]) {
-      const h = document.createElement("div");
-      h.className = `trim-handle ${side === "in" ? "left" : "right"}`;
-      h.title = side === "in" ? "Drag to trim the start" : "Drag to trim the end";
-      h.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        beginAudioTrim(e, clip.id, side);
-      });
-      b.appendChild(h);
+  els.audioLane.hidden = audioClips.length > 0;
+  layoutTimelineRows();
+  if (!audioClips.length) return;
+  tlRows.forEach((row, ri) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "tl-row audio";
+    rowEl.dataset.row = ri;
+    rowEl.dataset.t0 = row.t0;
+    rowEl.dataset.t1 = row.t1;
+    rowEl.style.width = `${Math.max(1, Math.round((row.t1 - row.t0) * lanePxPerSec))}px`;
+    for (const clip of audioClips) {
+      const kept = Math.max(0, clip.out - clip.in);
+      const s0 = Math.max(clip.offset, row.t0);
+      const s1 = Math.min(clip.offset + kept, row.t1);
+      if (s1 - s0 <= 0.001) continue;
+      const b = document.createElement("button");
+      b.className =
+        "audio-bar" +
+        (clip.kind === "narration" ? " narration" : "") +
+        (clip.id === selectedAudioId ? " selected" : "");
+      b.title = `${clip.name} — drag middle to move, drag edges to trim, Del to remove`;
+      b.dataset.id = clip.id;
+      b.dataset.row = ri;
+      b.dataset.t0 = row.t0;
+      b.dataset.t1 = row.t1;
+      layoutAudioSeg(b, clip);
+      const cv = document.createElement("canvas");
+      cv.width = 300;
+      cv.height = 40;
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = `${clip.kind === "music" ? "Music" : "Narr."} · ${clip.name}`;
+      b.append(cv, tag);
+      b.addEventListener("pointerdown", (e) => beginAudioDrag(e, clip.id));
+      b.addEventListener("click", () => selectAudio(clip.id));
+      // Trim handles live on the segments holding each end of the clip.
+      const sides = [];
+      if (s0 <= clip.offset + 0.001) sides.push("in");
+      if (s1 >= clip.offset + kept - 0.001) sides.push("out");
+      for (const side of sides) {
+        const h = document.createElement("div");
+        h.className = `trim-handle ${side === "in" ? "left" : "right"}`;
+        h.title = side === "in" ? "Drag to trim the start" : "Drag to trim the end";
+        h.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          beginAudioTrim(e, clip.id, side);
+        });
+        b.appendChild(h);
+      }
+      rowEl.appendChild(b);
     }
-    bars.appendChild(b);
-    paintAudioBar(clip.id);
-  }
-  bars.appendChild(audioPlayhead);
+    const vRow = els.strip.querySelector(`.tl-row.video[data-row="${ri}"]`);
+    if (vRow) vRow.after(rowEl);
+    else els.strip.appendChild(rowEl);
+  });
+  for (const clip of audioClips) paintAudioBar(clip.id);
+  updatePlayheads();
+}
+
+/** Fits one audio segment to its row span (render + live drag updates). */
+function layoutAudioSeg(bar, clip) {
+  const rt0 = Number(bar.dataset.t0), rt1 = Number(bar.dataset.t1);
+  const span = Math.max(0.001, rt1 - rt0);
+  const kept = Math.max(0, clip.out - clip.in);
+  const s0 = Math.max(clip.offset, rt0);
+  const s1 = Math.min(clip.offset + kept, rt1);
+  bar.style.display = s1 - s0 > 0.0005 ? "" : "none";
+  bar.style.left = `${((s0 - rt0) / span) * 100}%`;
+  bar.style.width = `${Math.max(0.4, ((s1 - s0) / span) * 100)}%`;
 }
 
 function paintAudioBar(id) {
-  const bar = els.audioBars.querySelector(`[data-id="${id}"]`);
   const clip = audioClips.find((c) => c.id === id);
-  if (!bar || !clip) return;
-  const cv = bar.querySelector("canvas");
-  const ctx = cv.getContext("2d");
-  const w = cv.width;
-  const h = cv.height;
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(23,69,31,0.55)";
-  const peaks = clip.peaks;
-  const n = 90;
-  const bw = w / n;
-  for (let i = 0; i < n; i++) {
-    const v = peaks ? peaks[Math.floor((i / n) * peaks.length)] || 0 : 0.18;
-    const bh = Math.max(2, v * (h - 8));
-    ctx.fillRect(i * bw + 1, (h - bh) / 2, Math.max(1, bw - 2), bh);
+  if (!clip) return;
+  const kept = Math.max(0.001, clip.out - clip.in);
+  for (const bar of els.strip.querySelectorAll(`[data-id="${id}"]`)) {
+    const cv = bar.querySelector("canvas");
+    if (!cv) continue;
+    const ctx = cv.getContext("2d");
+    const w = cv.width;
+    const h = cv.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(23,69,31,0.55)";
+    const peaks = clip.peaks;
+    // Peaks span the kept range (established mapping); paint this seg's slice.
+    const rt0 = Number(bar.dataset.t0), rt1 = Number(bar.dataset.t1);
+    const s0 = Math.max(clip.offset, rt0), s1 = Math.min(clip.offset + kept, rt1);
+    const lo = (s0 - clip.offset) / kept, hi = (s1 - clip.offset) / kept;
+    const n = 90;
+    const bw = w / n;
+    for (let i = 0; i < n; i++) {
+      const f = lo + (i / n) * (hi - lo);
+      const v = peaks
+        ? peaks[Math.min(peaks.length - 1, Math.max(0, Math.floor(f * peaks.length)))] || 0
+        : 0.18;
+      const bh = Math.max(2, v * (h - 8));
+      ctx.fillRect(i * bw + 1, (h - bh) / 2, Math.max(1, bw - 2), bh);
+    }
   }
 }
 
@@ -2413,15 +2513,19 @@ function startAudioGesture(e, id, mode) {
   // mapping can't shift under the pointer mid-gesture.
   laneRenderSuppressed = true;
   selectAudio(id);
-  els.audioBars.querySelectorAll(".audio-bar").forEach((b) =>
+  els.strip.querySelectorAll(".audio-bar").forEach((b) =>
     b.classList.toggle("selected", Number(b.dataset.id) === id));
   refreshMusicPanel();
-  const lane = els.audioBars.getBoundingClientRect();
+  const segEl = e.currentTarget ? e.currentTarget.closest(".audio-bar") : null;
+  const rowEl = segEl ? segEl.closest(".tl-row") : null;
+  const rect = rowEl ? rowEl.getBoundingClientRect() : els.strip.getBoundingClientRect();
+  const rowSpan = segEl ? Math.max(0.001, Number(segEl.dataset.t1) - Number(segEl.dataset.t0)) : Math.max(projectTotal(), 0.001);
   audioDrag = {
     mode,
     clip,
     startX: e.clientX,
-    laneW: Math.max(1, lane.width),
+    rowW: Math.max(1, rect.width),
+    rowSpan,
     total: Math.max(projectTotal(), 0.001),
     startOffset: clip.offset,
     startIn: clip.in,
@@ -2429,7 +2533,7 @@ function startAudioGesture(e, id, mode) {
     moved: false,
   };
   try {
-    els.audioBars.setPointerCapture(e.pointerId);
+    els.strip.setPointerCapture(e.pointerId);
   } catch {
     /* older engines: window mousemove still tracks */
   }
@@ -2922,11 +3026,14 @@ function wireM5Controls() {
     })
   );
 
-  els.audioBars.addEventListener("click", (e) => {
+  els.strip.addEventListener("click", (e) => {
     if (justDraggedAudio || e.target.closest(".audio-bar")) return;
-    const rect = els.audioBars.getBoundingClientRect();
-    const frac = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
-    seekProject(frac * projectTotal());
+    const rowEl = e.target.closest(".tl-row.audio");
+    if (!rowEl) return;
+    const rect = rowEl.getBoundingClientRect();
+    const rt0 = Number(rowEl.dataset.t0), rt1 = Number(rowEl.dataset.t1);
+    const frac = rect.width > 0 ? clamp((e.clientX - rect.left) / rect.width, 0, 1) : 0;
+    seekProject(rt0 + frac * Math.max(0.001, rt1 - rt0));
   });
   els.btnRecordNarration.addEventListener("click", openRecordTab);
   els.btnNarrRecord.addEventListener("click", narrRecord);
@@ -3052,6 +3159,8 @@ function openExportDialog(presetName) {
   els.expCancel.disabled = false;
   els.expClose.hidden = true;
   els.exportOverlay.hidden = false;
+  els.savePulseText.textContent = "Rendering…";
+  els.savePulse.hidden = false;
 }
 
 function closeExportDialog() {
@@ -3065,6 +3174,9 @@ function setExpPhase(m) {
 function setExpProgress(frac, stats = "") {
   els.expFill.style.width = `${Math.round(Math.min(1, Math.max(0, frac)) * 100)}%`;
   els.expStats.textContent = stats;
+  if (!els.savePulse.hidden) {
+    els.savePulseText.textContent = `Rendering ${Math.round(Math.min(1, Math.max(0, frac)) * 100)}%`;
+  }
 }
 
 function expWarn(list) {
@@ -3076,6 +3188,7 @@ function expWarn(list) {
 function finishExport(kind, msg) {
   els.expCancel.hidden = true;
   els.expClose.hidden = false;
+  els.savePulse.hidden = true;
   if (kind === "ok") {
     els.expTitle.textContent = "Movie saved";
     setExpPhase(msg);
@@ -3668,9 +3781,35 @@ function xrayHover(e) {
 
 /* ------------------------------------------------------------------ zoom */
 function applyZoom() {
-  const v = Number(els.zoom.value); // 0..100
-  const w = Math.round(120 + (v / 100) * (280 - 120));
-  document.documentElement.style.setProperty("--chip-w", `${w}px`);
+  lanePxPerSec = pxPerSecForZoom(Number(els.zoom.value)); // 0..100
+  renderStrip();
+}
+
+/** Packs clips into wrapped rows at the current scale; row spans stay
+ *  contiguous so audio segments tile the same axis. The last row extends
+ *  to the project total for trailing audio. */
+function layoutTimelineRows() {
+  const total = Math.max(projectTotal(), 0.001);
+  if (!clips.length) {
+    tlRows = audioClips.length ? [{ ids: [], t0: 0, t1: total }] : [];
+    return;
+  }
+  const avail = Math.max(120, els.boardPane.clientWidth - 28);
+  const spans = clips.map((c, j) => {
+    const seg = segOfClip(c.id);
+    return {
+      id: c.id,
+      w: keptDuration(c) * lanePxPerSec,
+      t0: seg ? seg.bodyStart : 0,
+      t1: seg ? seg.end : keptDuration(c),
+      splitOk: !(seg?.x && j > 0),
+    };
+  });
+  tlRows = packTimelineRows(spans, avail);
+  if (tlRows.length) {
+    const last = tlRows[tlRows.length - 1];
+    last.t1 = Math.max(last.t1, total);
+  }
 }
 
 /* ----------------------------------------------------------------- events */
@@ -3779,6 +3918,23 @@ function wireEvents() {
   els.btnSetOut.addEventListener("click", setEndPoint);
   els.btnSplit.addEventListener("click", splitSelected);
   els.btnTrimTool.addEventListener("click", openTrimTool);
+  els.clipDurationInput.addEventListener("change", () => {
+    const clip = editableClip();
+    if (!clip || clip.kind !== "image") return;
+    const want = clamp(Number(els.clipDurationInput.value) || PHOTO_DUR_MIN, PHOTO_DUR_MIN, PHOTO_DUR_MAX);
+    if (Math.abs(want - keptDuration(clip)) < 0.005) {
+      els.clipDurationInput.value = Math.round(keptDuration(clip) * 100) / 100;
+      return; // nothing changed — no undo entry
+    }
+    history.push(snapshotState());
+    const applied = setKeptDuration(clip, want);
+    rebuildLayout();
+    T = clamp(T, 0, Math.max(0, projectTotal()));
+    updateUndoButtons();
+    renderStrip();
+    refreshEditPanel();
+    hint(`Photo shows for ${applied.toFixed(2)} s.`);
+  });
   els.btnRemove.addEventListener("click", deleteSelected);
   els.btnRotL.addEventListener("click", () => rotateSelected(-90));
   els.btnRotR.addEventListener("click", () => rotateSelected(90));
@@ -3911,7 +4067,7 @@ function wireEvents() {
         updateUndoButtons();
       }
       const total = audioDrag.total;
-      const dt = ((e.clientX - audioDrag.startX) / audioDrag.laneW) * total;
+      const dt = ((e.clientX - audioDrag.startX) / audioDrag.rowW) * audioDrag.rowSpan;
       const c = audioDrag.clip;
       if (audioDrag.mode === "trim-out") {
         c.out = clamp(audioDrag.startOut + dt, audioDrag.startIn + 0.1, Math.max(c.duration, audioDrag.startIn + 0.1));
@@ -3922,11 +4078,7 @@ function wireEvents() {
       } else {
         c.offset = clamp(audioDrag.startOffset + dt, 0, total);
       }
-      const bar = els.audioBars.querySelector(`[data-id="${c.id}"]`);
-      if (bar) {
-        bar.style.left = `${(c.offset / total) * 100}%`;
-        bar.style.width = `${Math.max(1.5, ((c.out - c.in) / total) * 100)}%`;
-      }
+      for (const bar of els.strip.querySelectorAll(`[data-id="${c.id}"]`)) layoutAudioSeg(bar, c);
       refreshMusicPanel();
       return;
     }
@@ -3962,7 +4114,19 @@ function wireEvents() {
   els.zoom.addEventListener("input", applyZoom);
   els.btnZoomIn.addEventListener("click", () => { els.zoom.value = clamp(Number(els.zoom.value) + 10, 0, 100); applyZoom(); });
   els.btnZoomOut.addEventListener("click", () => { els.zoom.value = clamp(Number(els.zoom.value) - 10, 0, 100); applyZoom(); });
-  els.btnFit.addEventListener("click", () => { els.zoom.value = 35; applyZoom(); });
+  els.btnFit.addEventListener("click", () => {
+    const total = Math.max(projectTotal(), 0.001);
+    const avail = Math.max(60, els.boardPane.clientWidth - 28);
+    els.zoom.value = Math.round(zoomForPxPerSec(avail / total));
+    applyZoom();
+  });
+  let boardResizeTimer = 0;
+  new ResizeObserver(() => {
+    clearTimeout(boardResizeTimer);
+    boardResizeTimer = setTimeout(() => {
+      if (!audioDrag && !stripDrag) renderStrip();
+    }, 150);
+  }).observe(els.boardPane);
 
   // Keyboard
   window.addEventListener("keydown", (e) => {

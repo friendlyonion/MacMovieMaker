@@ -28,6 +28,7 @@
             <button class="tab contextual amber" role="tab" data-tab="options" id="tabMusic" hidden><span class="ctx">Music Tools</span>Options</button>
             <button class="tab contextual red" role="tab" data-tab="record" id="tabRecord" hidden><span class="ctx">Narration</span>Record</button>
           </nav>
+          <div class="save-pulse" id="savePulse" hidden><span class="pulse-dot" aria-hidden="true"></span><span id="savePulseText">Rendering…</span></div>
         </div>
 
         <div class="ribbon-body">
@@ -157,7 +158,7 @@
 
             <div class="group">
               <div class="group-controls col">
-                <div class="duration-read" title="Length of the kept range">Duration <strong id="clipDuration">—</strong></div>
+                <div class="duration-read" title="Length of the kept range">Duration <strong id="clipDuration">—</strong><label class="dur-field" id="clipDurationField" hidden title="How long this photo shows"><input type="number" id="clipDurationInput" min="0.5" max="60" step="0.5" value="7" aria-label="Photo duration in seconds" /><span>s</span></label></div>
                 <button class="rbtn-sm" disabled title="Audio fades (coming in a later milestone)"><span class="ic" data-icon="fade"></span>Fade in / out ▾</button>
                 <button class="rbtn-sm" disabled title="Playback speed (coming in a later milestone)"><span class="ic" data-icon="speed"></span>Speed ▾</button>
                 <button class="rbtn-sm" disabled title="Stabilization (coming in a later milestone)"><span class="ic" data-icon="steady"></span>Stabilization ▾</button>
@@ -407,7 +408,6 @@
             <span class="dz-sub">or click to browse…</span>
           </button>
           <div id="audioLane" aria-label="Audio track">
-            <div id="audioBars"></div>
             <div id="audioEmpty">Music and narration appear here — add music from the Home tab.</div>
           </div>
         </section>
@@ -418,9 +418,9 @@
         <span id="itemCount">No clips</span>
         <span id="statusHint" role="status"></span>
         <div class="zoom-controls">
-          <button id="btnFit" title="Fit thumbnails" aria-label="Fit thumbnails"><span class="ic" data-icon="fit"></span></button>
+          <button id="btnFit" title="Fit project in view" aria-label="Fit project in view"><span class="ic" data-icon="fit"></span></button>
           <button id="btnZoomOut" title="Zoom out (−)" aria-label="Zoom out"><span class="ic" data-icon="minus"></span></button>
-          <input type="range" id="zoom" min="0" max="100" value="35" aria-label="Storyboard zoom" />
+          <input type="range" id="zoom" min="0" max="100" value="35" aria-label="Timeline zoom" />
           <button id="btnZoomIn" title="Zoom in (+)" aria-label="Zoom in"><span class="ic" data-icon="plus"></span></button>
         </div>
       </footer>
